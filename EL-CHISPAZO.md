@@ -97,6 +97,50 @@ pregunta quién lo encendió.
 ---
 ---
 
+# Prólogo — La ola y el océano
+
+El problema de los seres humanos ha sido siempre el mismo: creer que la ola es el
+océano.
+
+Nos alzamos un instante sobre la masa inmensa del agua, tomamos forma, miramos
+alrededor —y desde esa altura pequeña nos preguntamos por nuestro sentido, como si
+fuéramos algo aparte, algo arrojado a la inmensidad que ahora debe explicarse a sí mismo
+por qué está aquí.
+
+Pero la pregunta está mal hecha desde el principio. No se trata de por qué nació la ola
+y por qué luego se deshace —en la orilla o de vuelta en la hondura del océano—. Esa
+pregunta da por sentado que hubo un momento en que la ola no era, y otro en que dejará
+de ser. Y no lo hubo. La verdadera pregunta, la única que importa, es otra: **¿qué mueve
+a la ola en su fluir?**
+
+Porque la ola siempre fue el océano. Nunca estuvo separada de él. Nació como un
+desnivel, como un contraste dentro de esa misma agua ordenada —un lugar donde el mar se
+elevó apenas sobre sí mismo—. Y no se movió sola: nada se mueve solo. Algo, antes,
+encendió la chispa que la levantó; algo, después, la recibirá y la devolverá a la calma.
+La ola no es una cosa que aparece y desaparece. Es un gesto del océano, prestado un
+momento a la forma.
+
+Por eso no hay que preguntarse por qué nació, porque siempre estuvo. No hubo un antes
+—porque antes ya era agua—. No habrá un después —porque después seguirá siendo agua—. No
+vino de ninguna nada, ni regresa a ninguna nada: la nada nunca tuvo cómo ganarle. Lo que
+llamamos su nacimiento y su muerte son solo los dos bordes del único instante en que fue
+*ella*.
+
+Y ahí está todo. La ola no cobra sentido antes de alzarse, cuando dormía indistinta en
+la masa del mar. No lo cobrará después, cuando vuelva a ella. **Cobra sentido en el único
+momento en que se eleva y se distingue del océano —cuando toma su propia forma—.** Ni
+antes ni después. Ahora. En el filo exacto en que es diferencia.
+
+Este libro trata de ese instante. De la chispa que lo enciende, de la forma que
+sostiene, del sentido que solo existe mientras la ola es ola. Trata de ti, que lo estás
+leyendo desde tu propia cresta, creyéndote arrojado al mar cuando en verdad *eres* el
+mar, haciendo un gesto.
+
+No naciste para durar. Naciste para tomar forma. Y ya lo estás haciendo perfectamente.
+
+---
+---
+
 # Capítulo 1 — El chispazo
 
 ## I. El ensayo
