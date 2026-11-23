@@ -4,7 +4,19 @@
   "base_url": "https://revx.revolut.com/api",
   "region": "EEA",
   "dry_run": true,
-  "symbols": ["BTC/EUR", "ETH/EUR", "SOL/EUR"],
+  "symbols": [
+    "BTC/EUR", "ETH/EUR", "SOL/EUR", "XRP/EUR", "BNB/EUR", "ADA/EUR",
+    "ALGO/EUR", "APT/EUR", "ARB/EUR", "ATOM/EUR", "AVAX/EUR", "AVNT/EUR",
+    "BCH/EUR", "BONK/EUR", "CHZ/EUR", "CRV/EUR", "DASH/EUR", "DOGE/EUR",
+    "DOT/EUR", "ENA/EUR", "ETC/EUR", "FET/EUR", "FIDA/EUR", "FIL/EUR",
+    "FLOKI/EUR", "HBAR/EUR", "HYPE/EUR", "ICP/EUR", "INJ/EUR", "JASMY/EUR",
+    "LDO/EUR", "LINK/EUR", "LTC/EUR", "MAGIC/EUR", "NEAR/EUR", "ONDO/EUR",
+    "OP/EUR", "PENDLE/EUR", "PENGU/EUR", "PEPE/EUR", "POL/EUR", "RENDER/EUR",
+    "SEI/EUR", "SHIB/EUR", "SPX/EUR", "STRK/EUR", "STX/EUR", "SUI/EUR",
+    "TIA/EUR", "TON/EUR", "TRUMP/EUR", "TRX/EUR", "UNI/EUR", "USDC/EUR",
+    "VVV/EUR", "WIF/EUR", "WLD/EUR", "XLM/EUR", "ZRO/EUR", "AAVE/EUR",
+    "1INCH/EUR"
+  ],
   "strategy": "combined",
   "check_interval_seconds": 60,
   "risk": {
