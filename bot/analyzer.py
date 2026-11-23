@@ -1,9 +1,9 @@
-"""Technical analysis engine using pandas_ta."""
+"""Technical analysis engine using pure pandas/numpy (no external TA library)."""
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
-import pandas_ta as pta
 
 from .models import Signal, TradeSignal
 
@@ -32,9 +32,8 @@ class TechnicalAnalyzer:
         scores: list[float] = []
 
         # RSI
-        rsi_series = pta.rsi(close, length=self.rsi_period)
-        if rsi_series is not None and len(rsi_series.dropna()) > 0:
-            rsi = rsi_series.iloc[-1]
+        rsi = self._calc_rsi(close, self.rsi_period)
+        if rsi is not None:
             indicators["rsi"] = round(rsi, 2)
             if rsi < self.rsi_oversold:
                 scores.append(1.0)
@@ -46,57 +45,45 @@ class TechnicalAnalyzer:
                 scores.append(0.0)
 
         # MACD
-        macd_df = pta.macd(close, fast=self.macd_fast, slow=self.macd_slow, signal=self.macd_signal)
-        if macd_df is not None and len(macd_df.dropna()) > 1:
-            hist_col = [c for c in macd_df.columns if "h" in c.lower() or "hist" in c.lower()]
-            macd_col = [c for c in macd_df.columns if c.startswith("MACD_") and "h" not in c.lower() and "s" not in c.lower()]
-            sig_col = [c for c in macd_df.columns if "s" in c.lower() and "h" not in c.lower()]
+        macd_line, signal_line, hist = self._calc_macd(close)
+        if hist is not None and len(hist.dropna()) > 1:
+            macd_hist = hist.iloc[-1]
+            prev_hist = hist.iloc[-2]
+            indicators["macd_hist"] = round(macd_hist, 4)
 
-            if hist_col:
-                macd_hist = macd_df[hist_col[0]].iloc[-1]
-                prev_hist = macd_df[hist_col[0]].iloc[-2]
-                indicators["macd_hist"] = round(macd_hist, 4)
-
-                if macd_hist > 0 and prev_hist <= 0:
-                    scores.append(1.0)
-                    reasons.append("MACD cruce alcista")
-                elif macd_hist < 0 and prev_hist >= 0:
-                    scores.append(-1.0)
-                    reasons.append("MACD cruce bajista")
-                elif macd_hist > 0:
-                    scores.append(0.3)
-                elif macd_hist < 0:
-                    scores.append(-0.3)
-                else:
-                    scores.append(0.0)
+            if macd_hist > 0 and prev_hist <= 0:
+                scores.append(1.0)
+                reasons.append("MACD cruce alcista")
+            elif macd_hist < 0 and prev_hist >= 0:
+                scores.append(-1.0)
+                reasons.append("MACD cruce bajista")
+            elif macd_hist > 0:
+                scores.append(0.3)
+            elif macd_hist < 0:
+                scores.append(-0.3)
+            else:
+                scores.append(0.0)
 
         # Bollinger Bands
-        bb_df = pta.bbands(close, length=self.bb_period, std=float(self.bb_std))
-        if bb_df is not None and len(bb_df.dropna()) > 0:
-            upper_col = [c for c in bb_df.columns if "u" in c.lower() or "upper" in c.lower()]
-            lower_col = [c for c in bb_df.columns if "l" in c.lower() and "lower" in c.lower() or c.startswith("BBL")]
-            mid_col = [c for c in bb_df.columns if "m" in c.lower() or "mid" in c.lower()]
+        bb_upper, bb_mid, bb_lower = self._calc_bollinger(close)
+        if bb_upper is not None:
+            current_price = prices[-1]
+            indicators["bb_upper"] = round(bb_upper, 2)
+            indicators["bb_lower"] = round(bb_lower, 2)
 
-            if upper_col and lower_col:
-                bb_upper = bb_df[upper_col[0]].iloc[-1]
-                bb_lower = bb_df[lower_col[0]].iloc[-1]
-                current_price = prices[-1]
-                indicators["bb_upper"] = round(bb_upper, 2)
-                indicators["bb_lower"] = round(bb_lower, 2)
-
-                if current_price <= bb_lower:
-                    scores.append(0.8)
-                    reasons.append("Precio en banda inferior de Bollinger")
-                elif current_price >= bb_upper:
-                    scores.append(-0.8)
-                    reasons.append("Precio en banda superior de Bollinger")
-                else:
-                    scores.append(0.0)
+            if current_price <= bb_lower:
+                scores.append(0.8)
+                reasons.append("Precio en banda inferior de Bollinger")
+            elif current_price >= bb_upper:
+                scores.append(-0.8)
+                reasons.append("Precio en banda superior de Bollinger")
+            else:
+                scores.append(0.0)
 
         # EMA Cross
-        ema_s = pta.ema(close, length=self.ema_short)
-        ema_l = pta.ema(close, length=self.ema_long)
-        if ema_s is not None and ema_l is not None and len(ema_s.dropna()) > 1 and len(ema_l.dropna()) > 1:
+        ema_s = close.ewm(span=self.ema_short, adjust=False).mean()
+        ema_l = close.ewm(span=self.ema_long, adjust=False).mean()
+        if len(ema_s.dropna()) > 1 and len(ema_l.dropna()) > 1:
             ema_short_val = ema_s.iloc[-1]
             ema_long_val = ema_l.iloc[-1]
             prev_ema_s = ema_s.iloc[-2]
@@ -149,9 +136,36 @@ class TechnicalAnalyzer:
             reasons.append("Sin señales claras")
 
         return TradeSignal(
-            symbol=symbol,
-            signal=signal,
-            confidence=round(confidence, 2),
-            reasons=reasons,
-            indicators=indicators,
+            symbol=symbol, signal=signal, confidence=round(confidence, 2),
+            reasons=reasons, indicators=indicators,
         )
+
+    @staticmethod
+    def _calc_rsi(close: pd.Series, period: int) -> float | None:
+        delta = close.diff()
+        gain = delta.where(delta > 0, 0.0)
+        loss = (-delta).where(delta < 0, 0.0)
+        avg_gain = gain.ewm(alpha=1 / period, min_periods=period).mean()
+        avg_loss = loss.ewm(alpha=1 / period, min_periods=period).mean()
+        last_loss = avg_loss.iloc[-1]
+        if last_loss == 0:
+            return 100.0
+        rs = avg_gain.iloc[-1] / last_loss
+        return 100 - (100 / (1 + rs))
+
+    def _calc_macd(self, close: pd.Series) -> tuple:
+        ema_fast = close.ewm(span=self.macd_fast, adjust=False).mean()
+        ema_slow = close.ewm(span=self.macd_slow, adjust=False).mean()
+        macd_line = ema_fast - ema_slow
+        signal_line = macd_line.ewm(span=self.macd_signal, adjust=False).mean()
+        histogram = macd_line - signal_line
+        return macd_line, signal_line, histogram
+
+    def _calc_bollinger(self, close: pd.Series) -> tuple:
+        sma = close.rolling(window=self.bb_period).mean()
+        std = close.rolling(window=self.bb_period).std()
+        if sma.iloc[-1] is None or np.isnan(sma.iloc[-1]):
+            return None, None, None
+        upper = sma.iloc[-1] + self.bb_std * std.iloc[-1]
+        lower = sma.iloc[-1] - self.bb_std * std.iloc[-1]
+        return upper, sma.iloc[-1], lower
