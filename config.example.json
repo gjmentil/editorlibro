@@ -2,9 +2,9 @@
   "api_key": "TU_API_KEY_DE_REVOLUT_X",
   "private_key_path": "private.pem",
   "base_url": "https://revx.revolut.com/api",
-  "region": "EU",
+  "region": "EEA",
   "dry_run": true,
-  "symbols": ["BTC-EUR", "ETH-EUR", "SOL-EUR"],
+  "symbols": ["BTC/EUR", "ETH/EUR", "SOL/EUR"],
   "strategy": "combined",
   "check_interval_seconds": 60,
   "risk": {

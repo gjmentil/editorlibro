@@ -20,14 +20,14 @@ class Trader:
     def __init__(self, config_path: str = "config.json"):
         self.config = json.loads(Path(config_path).read_text())
         self.dry_run = self.config.get("dry_run", True)
-        self.symbols = self.config.get("symbols", ["BTC-EUR"])
+        self.symbols = self.config.get("symbols", ["BTC/EUR"])
         self.interval = self.config.get("check_interval_seconds", 60)
 
         self.client = RevolutXClient(
             api_key=self.config["api_key"],
             private_key_path=self.config["private_key_path"],
             base_url=self.config.get("base_url", "https://revx.revolut.com/api"),
-            region=self.config.get("region", "EU"),
+            region=self.config.get("region", "EEA"),
         )
         self.db = Database()
         self.alerts = AlertManager(self.config.get("alerts", {}))
@@ -89,8 +89,8 @@ class Trader:
             self.alerts.info(f"{symbol}: Recopilando datos ({len(prices)}/30 mínimo)...")
             return
 
-        base_currency = symbol.split("-")[0]
-        quote_currency = symbol.split("-")[1] if "-" in symbol else "EUR"
+        base_currency = symbol.split("/")[0]
+        quote_currency = symbol.split("/")[1] if "/" in symbol else "EUR"
 
         position = self.positions.get(base_currency, 0)
         entry_price = self.entry_prices.get(symbol, 0)
@@ -139,7 +139,7 @@ class Trader:
 
     def _execute(self, symbol: str, side: Side, order_type: OrderType,
                  quantity: float, reason: str = ""):
-        base_currency = symbol.split("-")[0]
+        base_currency = symbol.split("/")[0]
 
         if self.dry_run:
             self.alerts.trade_alert(symbol, side.value, quantity, None, order_type.value, dry_run=True)
@@ -193,7 +193,7 @@ class Trader:
                     total += b.available + b.locked
                 elif b.total > 0:
                     try:
-                        t = self.client.get_ticker(f"{b.currency}-{quote_currency}")
+                        t = self.client.get_ticker(f"{b.currency}/{quote_currency}")
                         total += b.total * t.last_price
                     except Exception:
                         pass
