@@ -38,8 +38,8 @@ class Trader:
 
     def start(self):
         mode = "DRY RUN" if self.dry_run else "LIVE"
-        self.alerts.info(f"🚀 Bot iniciado en modo {mode}")
-        self.alerts.info(f"Símbolos: {', '.join(self.symbols)}")
+        self.alerts.info(f"Bot iniciado en modo {mode}")
+        self.alerts.info(f"Simbolos: {', '.join(self.symbols)}")
         self.alerts.info(f"Intervalo: {self.interval}s")
 
         if not self.dry_run:
@@ -74,14 +74,26 @@ class Trader:
             self.alerts.error_alert(f"Error cargando balances: {e}")
 
     def _tick(self):
+        try:
+            all_tickers = self.client.get_tickers()
+            ticker_map = {t.symbol: t for t in all_tickers}
+        except Exception as e:
+            self.alerts.error_alert(f"Error obteniendo tickers: {e}")
+            return
+
         for symbol in self.symbols:
             try:
-                self._process_symbol(symbol)
+                ticker = ticker_map.get(symbol)
+                if not ticker:
+                    self.alerts.info(f"{symbol}: no encontrado en tickers")
+                    continue
+                self._process_symbol(symbol, ticker)
             except Exception as e:
                 self.alerts.error_alert(f"Error procesando {symbol}: {e}")
 
-    def _process_symbol(self, symbol: str):
-        ticker = self.client.get_ticker(symbol)
+    def _process_symbol(self, symbol: str, ticker=None):
+        if ticker is None:
+            ticker = self.client.get_ticker(symbol)
         self.db.record_price(symbol, ticker.last_price, ticker.bid, ticker.ask, ticker.volume_24h)
 
         prices = self.db.get_price_history(symbol, limit=200)

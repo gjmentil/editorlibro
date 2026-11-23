@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
+import sys
 from datetime import datetime
-from pathlib import Path
 
 import httpx
 from rich.console import Console
@@ -17,6 +17,13 @@ console = Console()
 log = logging.getLogger(__name__)
 
 
+def _safe_log(logger_fn, message: str):
+    try:
+        logger_fn(message)
+    except UnicodeEncodeError:
+        logger_fn(message.encode("ascii", errors="replace").decode())
+
+
 class AlertManager:
     def __init__(self, config: dict):
         self.console_enabled = config.get("console", True)
@@ -25,7 +32,7 @@ class AlertManager:
         self.telegram_chat_id = config.get("telegram_chat_id", "")
 
         if self.log_file:
-            handler = logging.FileHandler(self.log_file)
+            handler = logging.FileHandler(self.log_file, encoding="utf-8")
             handler.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
             log.addHandler(handler)
 
@@ -38,33 +45,33 @@ class AlertManager:
         )
 
         if self.console_enabled:
-            console.print(Panel(msg, title=f"Señal {signal.symbol}", border_style=color))
+            console.print(Panel(msg, title=f"Signal {signal.symbol}", border_style=color))
 
-        log.info(msg)
-        self._telegram(f"📊 {msg}")
+        _safe_log(log.info, msg)
+        self._telegram(msg)
 
     def trade_alert(self, symbol: str, side: str, quantity: float, price: float | None, order_type: str, dry_run: bool = False):
-        prefix = "🧪 DRY RUN" if dry_run else "💰 TRADE"
+        prefix = "[DRY RUN]" if dry_run else "[TRADE]"
         price_str = f"@ {price:.2f}" if price else "@ mercado"
-        msg = f"{prefix} | {side} {quantity} {symbol} {price_str} ({order_type})"
+        msg = f"{prefix} {side} {quantity} {symbol} {price_str} ({order_type})"
 
         if self.console_enabled:
             color = "green" if side == "BUY" else "red"
             console.print(f"[bold {color}]{msg}[/]")
 
-        log.info(msg)
+        _safe_log(log.info, msg)
         self._telegram(msg)
 
     def error_alert(self, message: str):
         if self.console_enabled:
-            console.print(f"[bold red]❌ ERROR: {message}[/]")
-        log.error(message)
-        self._telegram(f"❌ ERROR: {message}")
+            console.print(f"[bold red]ERROR: {message}[/]")
+        _safe_log(log.error, message)
+        self._telegram(f"ERROR: {message}")
 
     def info(self, message: str):
         if self.console_enabled:
             console.print(f"[dim]{message}[/]")
-        log.info(message)
+        _safe_log(log.info, message)
 
     def status_table(self, balances: list, positions: dict, signals: dict):
         if not self.console_enabled:
@@ -73,7 +80,7 @@ class AlertManager:
         table = Table(title=f"Estado del Bot - {datetime.now().strftime('%H:%M:%S')}")
         table.add_column("Moneda", style="cyan")
         table.add_column("Balance", justify="right")
-        table.add_column("Señal", justify="center")
+        table.add_column("Signal", justify="center")
         table.add_column("Indicadores", style="dim")
 
         for b in balances:
@@ -104,7 +111,7 @@ class AlertManager:
                 timeout=10,
             )
         except Exception as e:
-            log.warning("Telegram alert failed: %s", e)
+            _safe_log(log.warning, f"Telegram alert failed: {e}")
 
 
 def _signal_color(signal: Signal) -> str:
