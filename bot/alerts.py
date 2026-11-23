@@ -6,7 +6,6 @@ import logging
 import sys
 from datetime import datetime
 
-import httpx
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -28,8 +27,7 @@ class AlertManager:
     def __init__(self, config: dict):
         self.console_enabled = config.get("console", True)
         self.log_file = config.get("log_file", "")
-        self.telegram_token = config.get("telegram_bot_token", "")
-        self.telegram_chat_id = config.get("telegram_chat_id", "")
+        self.telegram_bot = None
 
         if self.log_file:
             handler = logging.FileHandler(self.log_file, encoding="utf-8")
@@ -48,7 +46,8 @@ class AlertManager:
             console.print(Panel(msg, title=f"Signal {signal.symbol}", border_style=color))
 
         _safe_log(log.info, msg)
-        self._telegram(msg)
+        if self.telegram_bot:
+            self.telegram_bot.send_signal(signal.symbol, signal.signal.value, signal.confidence, signal.reasons, signal.indicators)
 
     def trade_alert(self, symbol: str, side: str, quantity: float, price: float | None, order_type: str, dry_run: bool = False):
         prefix = "[DRY RUN]" if dry_run else "[TRADE]"
@@ -60,13 +59,15 @@ class AlertManager:
             console.print(f"[bold {color}]{msg}[/]")
 
         _safe_log(log.info, msg)
-        self._telegram(msg)
+        if self.telegram_bot:
+            self.telegram_bot.send_trade(symbol, side, quantity, price, dry_run)
 
     def error_alert(self, message: str):
         if self.console_enabled:
             console.print(f"[bold red]ERROR: {message}[/]")
         _safe_log(log.error, message)
-        self._telegram(f"ERROR: {message}")
+        if self.telegram_bot:
+            self.telegram_bot.send_error(message)
 
     def info(self, message: str):
         if self.console_enabled:
@@ -101,17 +102,6 @@ class AlertManager:
 
         console.print(table)
 
-    def _telegram(self, message: str):
-        if not self.telegram_token or not self.telegram_chat_id:
-            return
-        try:
-            httpx.post(
-                f"https://api.telegram.org/bot{self.telegram_token}/sendMessage",
-                json={"chat_id": self.telegram_chat_id, "text": message, "parse_mode": "HTML"},
-                timeout=10,
-            )
-        except Exception as e:
-            _safe_log(log.warning, f"Telegram alert failed: {e}")
 
 
 def _signal_color(signal: Signal) -> str:

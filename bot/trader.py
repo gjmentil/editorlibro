@@ -12,6 +12,7 @@ from .client import RevolutXClient
 from .database import Database
 from .models import OrderType, Side
 from .strategy import TradingStrategy
+from .telegram_bot import TelegramBot
 
 log = logging.getLogger(__name__)
 
@@ -35,12 +36,26 @@ class Trader:
         self.positions: dict[str, float] = {}
         self.entry_prices: dict[str, float] = {}
         self._running = False
+        self._last_tickers: list = []
+
+        alerts_cfg = self.config.get("alerts", {})
+        self.telegram = TelegramBot(
+            token=alerts_cfg.get("telegram_bot_token", ""),
+            chat_id=alerts_cfg.get("telegram_chat_id", ""),
+        )
+        self.alerts.telegram_bot = self.telegram
 
     def start(self):
         mode = "DRY RUN" if self.dry_run else "LIVE"
         self.alerts.info(f"Bot iniciado en modo {mode}")
         self.alerts.info(f"Simbolos: {', '.join(self.symbols)}")
         self.alerts.info(f"Intervalo: {self.interval}s")
+
+        if self.telegram.enabled:
+            self._register_telegram_commands()
+            self.telegram.start_polling()
+            self.telegram.send(f"🤖 <b>Bot iniciado en modo {mode}</b>\n{len(self.symbols)} cryptos monitorizadas\n/help para ver comandos")
+            self.alerts.info("Telegram bot conectado")
 
         if not self.dry_run:
             self._load_positions()
@@ -58,11 +73,50 @@ class Trader:
 
             time.sleep(self.interval)
 
+        self.telegram.stop()
         self.client.close()
         self.db.close()
 
     def stop(self):
         self._running = False
+
+    def _register_telegram_commands(self):
+        self.telegram.register_command("/precios", self._cmd_prices)
+        self.telegram.register_command("/estado", self._cmd_status)
+        self.telegram.register_command("/portfolio", self._cmd_portfolio)
+
+    def _cmd_prices(self):
+        try:
+            tickers = self._last_tickers or self.client.get_tickers()
+            watched = [t for t in tickers if t.symbol in self.symbols]
+            watched.sort(key=lambda t: abs(t.change_24h_pct), reverse=True)
+            self.telegram.send_prices(watched[:20])
+        except Exception as e:
+            self.telegram.send_error(str(e))
+
+    def _cmd_status(self):
+        try:
+            daily = self.db.get_daily_pnl()
+            total = self._estimate_portfolio_value("EUR")
+            self.telegram.send_status(daily, self.positions, total)
+        except Exception as e:
+            self.telegram.send_error(str(e))
+
+    def _cmd_portfolio(self):
+        try:
+            lines = ["📊 <b>Portfolio</b>\n"]
+            has_positions = False
+            for currency, qty in self.positions.items():
+                if qty > 0:
+                    has_positions = True
+                    entry = self.entry_prices.get(f"{currency}/EUR", 0)
+                    entry_str = f" (entrada: {entry:,.2f})" if entry else ""
+                    lines.append(f"  • <b>{currency}</b>: {qty:.6f}{entry_str}")
+            if not has_positions:
+                lines.append("Sin posiciones abiertas")
+            self.telegram.send("\n".join(lines))
+        except Exception as e:
+            self.telegram.send_error(str(e))
 
     def _load_positions(self):
         try:
@@ -76,6 +130,7 @@ class Trader:
     def _tick(self):
         try:
             all_tickers = self.client.get_tickers()
+            self._last_tickers = all_tickers
             ticker_map = {t.symbol: t for t in all_tickers}
         except Exception as e:
             self.alerts.error_alert(f"Error obteniendo tickers: {e}")
@@ -85,7 +140,6 @@ class Trader:
             try:
                 ticker = ticker_map.get(symbol)
                 if not ticker:
-                    self.alerts.info(f"{symbol}: no encontrado en tickers")
                     continue
                 self._process_symbol(symbol, ticker)
             except Exception as e:
@@ -98,7 +152,6 @@ class Trader:
 
         prices = self.db.get_price_history(symbol, limit=200)
         if len(prices) < 30:
-            self.alerts.info(f"{symbol}: Recopilando datos ({len(prices)}/30 mínimo)...")
             return
 
         base_currency = symbol.split("/")[0]
@@ -107,7 +160,6 @@ class Trader:
         position = self.positions.get(base_currency, 0)
         entry_price = self.entry_prices.get(symbol, 0)
 
-        # Check stop-loss / take-profit first
         if position > 0 and entry_price > 0:
             sl_tp = self.strategy.check_stop_loss_take_profit(
                 symbol, ticker.last_price, entry_price, position
@@ -117,7 +169,6 @@ class Trader:
                 self._execute(symbol, sl_tp.side, sl_tp.order_type, sl_tp.quantity, sl_tp.reason)
                 return
 
-        # Evaluate strategy
         quote_balance = None
         if not self.dry_run:
             quote_balance = self.client.get_balance(quote_currency)
