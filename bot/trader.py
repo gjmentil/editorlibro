@@ -96,7 +96,7 @@ class Trader:
                 return
             watched = [t for t in self._last_tickers if t.symbol in self.symbols]
             watched.sort(key=lambda t: abs(t.change_24h_pct / (t.last_price - t.change_24h_pct)) if (t.last_price - t.change_24h_pct) != 0 else 0, reverse=True)
-            self.telegram.send_prices(watched[:20])
+            self.telegram.send_prices(watched)
         except Exception as e:
             self.telegram.send_error(str(e))
 

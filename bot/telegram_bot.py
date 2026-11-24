@@ -124,13 +124,20 @@ class TelegramBot:
         self.send(f"⚠️ <b>Error:</b> {message}")
 
     def send_prices(self, tickers: list):
-        lines = [f"📊 <b>Precios — {datetime.now().strftime('%H:%M')}</b>\n"]
+        lines = []
         for t in tickers:
             prev = t.last_price - t.change_24h_pct
             pct = (t.change_24h_pct / prev * 100) if prev != 0 else 0
             emoji = "🟢" if pct > 0 else "🔴"
-            lines.append(f"{emoji} <b>{t.symbol}</b>: {self._usd(t.last_price)} ({pct:+.2f}%)")
-        self.send("\n".join(lines))
+            name = t.symbol.split("/")[0]
+            lines.append(f"{emoji} <b>{name}</b>: {self._usd(t.last_price)} ({pct:+.2f}%)")
+
+        header = f"📊 <b>Precios — {datetime.now().strftime('%H:%M')}</b>\n"
+        batch_size = 30
+        for i in range(0, len(lines), batch_size):
+            batch = lines[i:i + batch_size]
+            prefix = header if i == 0 else ""
+            self.send(prefix + "\n".join(batch))
 
     def send_status(self, daily_stats: dict, positions: dict, total_value: float):
         pnl = daily_stats.get("pnl", 0)
