@@ -120,8 +120,10 @@ class TelegramBot:
     def send_prices(self, tickers: list):
         lines = [f"📊 <b>Precios — {datetime.now().strftime('%H:%M')}</b>\n"]
         for t in tickers:
-            emoji = "🟢" if t.change_24h_pct > 0 else "🔴"
-            lines.append(f"{emoji} <b>{t.symbol}</b>: {self._usd(t.last_price)} ({t.change_24h_pct:+.2f}%)")
+            prev = t.last_price - t.change_24h_pct
+            pct = (t.change_24h_pct / prev * 100) if prev != 0 else 0
+            emoji = "🟢" if pct > 0 else "🔴"
+            lines.append(f"{emoji} <b>{t.symbol}</b>: {self._usd(t.last_price)} ({pct:+.2f}%)")
         self.send("\n".join(lines))
 
     def send_status(self, daily_stats: dict, positions: dict, total_value: float):
