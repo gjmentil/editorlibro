@@ -31,8 +31,14 @@ class TelegramBot:
 
     def _usd(self, eur_amount: float) -> str:
         if self.eur_usd_rate > 0:
-            return f"${eur_amount * self.eur_usd_rate:,.2f}"
-        return f"{eur_amount:,.2f} EUR"
+            val = eur_amount * self.eur_usd_rate
+        else:
+            val = eur_amount
+        if abs(val) < 0.01:
+            return f"${val:.6f}"
+        if abs(val) < 1:
+            return f"${val:.4f}"
+        return f"${val:,.2f}"
 
     def verify(self) -> bool:
         if not self.enabled:
