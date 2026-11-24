@@ -22,10 +22,16 @@ class TelegramBot:
         self._running = False
         self._command_handlers: dict[str, callable] = {}
         self._poll_thread: threading.Thread | None = None
+        self.eur_usd_rate: float = 0.0
 
     @property
     def enabled(self) -> bool:
         return bool(self.token and self.chat_id)
+
+    def _usd(self, eur_amount: float) -> str:
+        if self.eur_usd_rate > 0:
+            return f"${eur_amount * self.eur_usd_rate:,.2f}"
+        return f"{eur_amount:,.2f} EUR"
 
     def verify(self) -> bool:
         if not self.enabled:
@@ -94,7 +100,7 @@ class TelegramBot:
     def send_trade(self, symbol: str, side: str, quantity: float, price: float | None, dry_run: bool = False):
         emoji = "🟢" if side == "BUY" else "🔴"
         mode = " (simulacion)" if dry_run else ""
-        price_str = f"{price:,.2f} EUR" if price else "mercado"
+        price_str = self._usd(price) if price else "mercado"
 
         text = (
             f"{emoji} <b>TRADE{mode}</b>\n"
@@ -110,7 +116,7 @@ class TelegramBot:
         lines = [f"📊 <b>Precios — {datetime.now().strftime('%H:%M')}</b>\n"]
         for t in tickers:
             emoji = "🟢" if t.change_24h_pct > 0 else "🔴"
-            lines.append(f"{emoji} <b>{t.symbol}</b>: {t.last_price:,.2f} EUR ({t.change_24h_pct:+.2f})")
+            lines.append(f"{emoji} <b>{t.symbol}</b>: {self._usd(t.last_price)} ({t.change_24h_pct:+.2f}%)")
         self.send("\n".join(lines))
 
     def send_status(self, daily_stats: dict, positions: dict, total_value: float):
@@ -124,10 +130,10 @@ class TelegramBot:
 
         text = (
             f"🤖 <b>Estado del Bot</b>\n\n"
-            f"{pnl_emoji} P&L hoy: <b>{pnl:+,.2f} EUR</b>\n"
+            f"{pnl_emoji} P&L hoy: <b>{self._usd(pnl)}</b>\n"
             f"📈 Trades hoy: {daily_stats.get('trades', 0)}\n"
-            f"💰 Portfolio: {total_value:,.2f} EUR\n"
-            f"📊 Comisiones: {daily_stats.get('fees', 0):.2f} EUR\n"
+            f"💰 Portfolio: {self._usd(total_value)}\n"
+            f"📊 Comisiones: {self._usd(daily_stats.get('fees', 0))}\n"
         )
         if pos_lines:
             text += f"\n<b>Posiciones:</b>\n" + "\n".join(pos_lines)

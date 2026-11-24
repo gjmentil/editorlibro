@@ -115,7 +115,7 @@ class Trader:
                 if qty > 0:
                     has_positions = True
                     entry = self.entry_prices.get(f"{currency}/EUR", 0)
-                    entry_str = f" (entrada: {entry:,.2f})" if entry else ""
+                    entry_str = f" (entrada: {self.telegram._usd(entry)})" if entry else ""
                     lines.append(f"  • <b>{currency}</b>: {qty:.6f}{entry_str}")
             if not has_positions:
                 lines.append("Sin posiciones abiertas")
@@ -137,6 +137,9 @@ class Trader:
             all_tickers = self.client.get_tickers()
             self._last_tickers = all_tickers
             ticker_map = {t.symbol: t for t in all_tickers}
+            usdc = ticker_map.get("USDC/EUR")
+            if usdc and usdc.last_price > 0:
+                self.telegram.eur_usd_rate = 1.0 / usdc.last_price
         except Exception as e:
             self.alerts.error_alert(f"Error obteniendo tickers: {e}")
             return
