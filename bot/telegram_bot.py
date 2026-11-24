@@ -23,6 +23,7 @@ class TelegramBot:
         self._command_handlers: dict[str, callable] = {}
         self._poll_thread: threading.Thread | None = None
         self.eur_usd_rate: float = 0.0
+        self.alerts_enabled: bool = True
 
     @property
     def enabled(self) -> bool:
@@ -85,7 +86,11 @@ class TelegramBot:
             log.warning("Telegram send failed: %s", e)
 
     def send_signal(self, symbol: str, signal: str, confidence: float, reasons: list[str], indicators: dict):
-        emoji = {"STRONG_BUY": "🟢🟢", "BUY": "🟢", "HOLD": "⚪", "SELL": "🔴", "STRONG_SELL": "🔴🔴"}.get(signal, "⚪")
+        if not self.alerts_enabled:
+            return
+        if signal == "HOLD":
+            return
+        emoji = {"STRONG_BUY": "🟢🟢", "BUY": "🟢", "SELL": "🔴", "STRONG_SELL": "🔴🔴"}.get(signal, "⚪")
         reason_text = "\n".join(f"  • {r}" for r in reasons)
         ind_text = "\n".join(f"  <code>{k}: {v}</code>" for k, v in indicators.items())
 
@@ -143,12 +148,13 @@ class TelegramBot:
         self.send(text)
 
     def send_help(self):
+        alerts_state = "ON" if self.alerts_enabled else "OFF"
         self.send(
             "🤖 <b>Comandos disponibles:</b>\n\n"
-            "/precios — Precios actuales\n"
+            "/precios — Precios actuales (USD)\n"
             "/estado — Estado del bot y P&L\n"
             "/portfolio — Posiciones abiertas\n"
-            "/alertas — Activar/desactivar alertas\n"
+            f"/alertas — Alertas de senales ({alerts_state})\n"
             "/help — Este mensaje"
         )
 

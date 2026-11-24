@@ -87,6 +87,7 @@ class Trader:
         self.telegram.register_command("/status", self._cmd_status)
         self.telegram.register_command("/portfolio", self._cmd_portfolio)
         self.telegram.register_command("/cartera", self._cmd_portfolio)
+        self.telegram.register_command("/alertas", self._cmd_alertas)
 
     def _cmd_prices(self):
         try:
@@ -106,6 +107,12 @@ class Trader:
             self.telegram.send_status(daily, self.positions, total)
         except Exception as e:
             self.telegram.send_error(str(e))
+
+    def _cmd_alertas(self):
+        self.telegram.alerts_enabled = not self.telegram.alerts_enabled
+        state = "activadas" if self.telegram.alerts_enabled else "desactivadas"
+        emoji = "🔔" if self.telegram.alerts_enabled else "🔕"
+        self.telegram.send(f"{emoji} Alertas de senales <b>{state}</b>")
 
     def _cmd_portfolio(self):
         try:
