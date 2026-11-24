@@ -1,6 +1,16 @@
 """Quick setup: creates config.json with all 61 EUR crypto pairs."""
 import json
+import re
 from pathlib import Path
+
+
+def _clean(value: str) -> str:
+    """Strip JSON formatting if user pasted a full JSON line."""
+    value = value.strip().rstrip(",")
+    m = re.search(r':\s*"([^"]*)"', value)
+    if m:
+        return m.group(1)
+    return value.strip('"').strip("'")
 
 
 def main():
@@ -11,11 +21,17 @@ def main():
         existing = json.loads(Path("config.json").read_text())
         print("config.json existente encontrado. Se actualizara.\n")
 
-    api_key = existing.get("api_key") or input("API Key de Revolut X: ").strip()
-    telegram_token = (existing.get("alerts", {}).get("telegram_bot_token")
-                      or input("Telegram Bot Token: ").strip())
-    telegram_chat = (existing.get("alerts", {}).get("telegram_chat_id")
-                     or input("Telegram Chat ID: ").strip())
+    api_key = existing.get("api_key", "")
+    if not api_key or "REVOLUT" in api_key.upper() or len(api_key) < 20:
+        api_key = _clean(input("API Key de Revolut X: "))
+
+    telegram_token = existing.get("alerts", {}).get("telegram_bot_token", "")
+    if not telegram_token or ":" not in telegram_token or len(telegram_token) > 60:
+        telegram_token = _clean(input("Telegram Bot Token: "))
+
+    telegram_chat = existing.get("alerts", {}).get("telegram_chat_id", "")
+    if not telegram_chat or not telegram_chat.isdigit():
+        telegram_chat = _clean(input("Telegram Chat ID: "))
 
     config = {
         "api_key": api_key,
@@ -68,7 +84,8 @@ def main():
     Path("config.json").write_text(json.dumps(config, indent=2, ensure_ascii=False))
     print(f"\nconfig.json creado con:")
     print(f"  - API Key: ...{api_key[-8:]}")
-    print(f"  - Telegram: configurado")
+    print(f"  - Telegram token: ...{telegram_token[-10:]}")
+    print(f"  - Telegram chat: {telegram_chat}")
     print(f"  - {len(config['symbols'])} cryptos EUR")
     print(f"  - Modo: {'DRY RUN (simulacion)' if config['dry_run'] else 'LIVE'}")
     print(f"\nListo! Arranca con: python -m bot run")
