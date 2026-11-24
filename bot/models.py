@@ -105,4 +105,5 @@ class TradeSignal:
     confidence: float
     reasons: list[str]
     indicators: dict = field(default_factory=dict)
+    price: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)

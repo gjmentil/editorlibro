@@ -47,7 +47,7 @@ class AlertManager:
 
         _safe_log(log.info, msg)
         if self.telegram_bot:
-            self.telegram_bot.send_signal(signal.symbol, signal.signal.value, signal.confidence, signal.reasons, signal.indicators)
+            self.telegram_bot.send_signal(signal.symbol, signal.signal.value, signal.confidence, signal.reasons, signal.indicators, signal.price)
 
     def trade_alert(self, symbol: str, side: str, quantity: float, price: float | None, order_type: str, dry_run: bool = False):
         prefix = "[DRY RUN]" if dry_run else "[TRADE]"

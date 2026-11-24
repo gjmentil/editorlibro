@@ -137,7 +137,7 @@ class TechnicalAnalyzer:
 
         return TradeSignal(
             symbol=symbol, signal=signal, confidence=round(confidence, 2),
-            reasons=reasons, indicators=indicators,
+            reasons=reasons, indicators=indicators, price=prices[-1],
         )
 
     @staticmethod

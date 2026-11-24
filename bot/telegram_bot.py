@@ -91,7 +91,7 @@ class TelegramBot:
         except Exception as e:
             log.warning("Telegram send failed: %s", e)
 
-    def send_signal(self, symbol: str, signal: str, confidence: float, reasons: list[str], indicators: dict):
+    def send_signal(self, symbol: str, signal: str, confidence: float, reasons: list[str], indicators: dict, price: float = 0):
         if not self.alerts_enabled:
             return
         if signal == "HOLD":
@@ -100,50 +100,76 @@ class TelegramBot:
         name = symbol.split("/")[0]
         rsi = indicators.get("rsi", 0)
         macd = indicators.get("macd_hist", 0)
+        bb_upper = indicators.get("bb_upper", 0)
+        bb_lower = indicators.get("bb_lower", 0)
+        ema_s = indicators.get("ema_short", 0)
+        ema_l = indicators.get("ema_long", 0)
+        momentum = indicators.get("momentum_5", 0)
+
+        price_usd = self._usd(price) if price else "?"
 
         if signal == "STRONG_BUY":
-            header = f"🟢🟢 <b>COMPRAR {name}</b> — Oportunidad fuerte"
-            advice = (
-                f"Varios indicadores coinciden en que <b>{name}</b> esta en un buen punto de entrada.\n"
-                f"El precio esta bajo respecto a su rango reciente y muestra impulso alcista."
-            )
+            header = f"🟢🟢 <b>COMPRAR {name}</b> — Senal fuerte"
+            advice = f"Multiples indicadores tecnicos coinciden: buen momento para entrar en <b>{name}</b>."
         elif signal == "BUY":
-            header = f"🟢 <b>COMPRAR {name}</b> — Oportunidad moderada"
-            advice = (
-                f"Los indicadores sugieren que <b>{name}</b> podria subir.\n"
-                f"No es una senal tan fuerte, pero las condiciones son favorables."
-            )
+            header = f"🟢 <b>COMPRAR {name}</b> — Senal moderada"
+            advice = f"Los indicadores sugieren que <b>{name}</b> podria subir. Oportunidad moderada."
         elif signal == "SELL":
-            header = f"🔴 <b>VENDER {name}</b> — Momento de salir"
-            advice = (
-                f"Los indicadores sugieren que <b>{name}</b> podria bajar.\n"
-                f"Si tienes esta crypto, considera vender para proteger tus ganancias."
-            )
+            header = f"🔴 <b>VENDER {name}</b> — Senal de salida"
+            advice = f"Los indicadores muestran debilidad en <b>{name}</b>. Considera vender."
         else:
-            header = f"🔴🔴 <b>VENDER {name}</b> — Salir ya"
-            advice = (
-                f"Multiples indicadores muestran que <b>{name}</b> esta sobrecomprada y podria caer.\n"
-                f"Es recomendable vender lo antes posible."
-            )
-
-        risk_note = ""
-        if signal in ("STRONG_BUY", "BUY"):
-            risk_note = "\n⚠️ Stop-loss automatico al -3%. Take-profit al +6%."
-
-        rsi_text = ""
-        if rsi:
-            if rsi < 30:
-                rsi_text = f"\n📉 RSI: {rsi:.0f} (sobreventa = oportunidad de compra)"
-            elif rsi > 70:
-                rsi_text = f"\n📈 RSI: {rsi:.0f} (sobrecompra = riesgo de caida)"
-            else:
-                rsi_text = f"\n📊 RSI: {rsi:.0f} (zona neutral)"
+            header = f"🔴🔴 <b>VENDER {name}</b> — Senal fuerte de salida"
+            advice = f"Multiples indicadores en contra de <b>{name}</b>. Recomendable salir."
 
         stars = "⭐" * max(1, min(5, int(confidence * 5)))
+
+        # Technical analysis section
+        tech = []
+        if rsi:
+            if rsi < 30:
+                tech.append(f"📉 RSI: <b>{rsi:.0f}</b> — Sobreventa (precio muy bajo, probable rebote)")
+            elif rsi > 70:
+                tech.append(f"📈 RSI: <b>{rsi:.0f}</b> — Sobrecompra (precio muy alto, probable caida)")
+            else:
+                tech.append(f"📊 RSI: <b>{rsi:.0f}</b> — Zona neutral")
+
+        if macd:
+            if macd > 0:
+                tech.append(f"📊 MACD: <b>Alcista</b> — Tendencia subiendo")
+            else:
+                tech.append(f"📊 MACD: <b>Bajista</b> — Tendencia bajando")
+
+        if ema_s and ema_l:
+            if ema_s > ema_l:
+                tech.append(f"📈 EMA: Rapida sobre lenta — Tendencia alcista")
+            else:
+                tech.append(f"📉 EMA: Rapida bajo lenta — Tendencia bajista")
+
+        if momentum:
+            tech.append(f"🔄 Momentum: <b>{momentum:+.2f}%</b> (ultimas 5 lecturas)")
+
+        tech_text = "\n".join(tech)
+
+        # Price targets
+        targets = ""
+        if price > 0 and signal in ("STRONG_BUY", "BUY"):
+            sl = price * 0.97
+            tp = price * 1.06
+            targets = (
+                f"\n\n💰 <b>Objetivos:</b>\n"
+                f"  📍 Entrada: {price_usd}\n"
+                f"  🎯 Ganancia (+6%): {self._usd(tp)}\n"
+                f"  🛑 Stop-loss (-3%): {self._usd(sl)}\n"
+                f"  📊 Ratio riesgo/beneficio: 1:2"
+            )
+
         text = (
             f"{header}\n"
-            f"Confianza: {stars} ({confidence:.0%})\n\n"
-            f"{advice}{rsi_text}{risk_note}"
+            f"Confianza: {stars} ({confidence:.0%})\n"
+            f"Precio actual: {price_usd}\n\n"
+            f"{advice}\n\n"
+            f"<b>Analisis tecnico:</b>\n{tech_text}"
+            f"{targets}"
         )
         self.send(text)
 
