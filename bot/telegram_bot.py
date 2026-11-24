@@ -23,17 +23,25 @@ class TelegramBot:
         self._command_handlers: dict[str, callable] = {}
         self._poll_thread: threading.Thread | None = None
         self.eur_usd_rate: float = 0.0
+        self.usd_prices: dict[str, float] = {}
         self.alerts_enabled: bool = True
 
     @property
     def enabled(self) -> bool:
         return bool(self.token and self.chat_id)
 
-    def _usd(self, eur_amount: float) -> str:
+    def _usd(self, eur_amount: float, symbol: str = "") -> str:
+        if symbol:
+            crypto = symbol.split("/")[0]
+            usd_price = self.usd_prices.get(f"{crypto}/USD", 0)
+            if usd_price > 0:
+                return self._fmt_usd(usd_price)
         if self.eur_usd_rate > 0:
-            val = eur_amount * self.eur_usd_rate
-        else:
-            val = eur_amount
+            return self._fmt_usd(eur_amount * self.eur_usd_rate)
+        return f"{eur_amount:,.2f} EUR"
+
+    @staticmethod
+    def _fmt_usd(val: float) -> str:
         if abs(val) < 0.01:
             return f"${val:.6f}"
         if abs(val) < 1:
@@ -106,7 +114,7 @@ class TelegramBot:
         ema_l = indicators.get("ema_long", 0)
         momentum = indicators.get("momentum_5", 0)
 
-        price_usd = self._usd(price) if price else "?"
+        price_usd = self._usd(price, symbol) if price else "?"
 
         if signal == "STRONG_BUY":
             header = f"🟢🟢 <b>COMPRAR {name}</b> — Senal fuerte"
@@ -153,13 +161,19 @@ class TelegramBot:
         # Price targets
         targets = ""
         if price > 0 and signal in ("STRONG_BUY", "BUY"):
-            sl = price * 0.97
-            tp = price * 1.06
+            crypto = symbol.split("/")[0]
+            usd_now = self.usd_prices.get(f"{crypto}/USD", 0)
+            if usd_now > 0:
+                sl_usd = usd_now * 0.97
+                tp_usd = usd_now * 1.06
+            else:
+                sl_usd = price * 0.97 * max(self.eur_usd_rate, 1)
+                tp_usd = price * 1.06 * max(self.eur_usd_rate, 1)
             targets = (
                 f"\n\n💰 <b>Objetivos:</b>\n"
                 f"  📍 Entrada: {price_usd}\n"
-                f"  🎯 Ganancia (+6%): {self._usd(tp)}\n"
-                f"  🛑 Stop-loss (-3%): {self._usd(sl)}\n"
+                f"  🎯 Ganancia (+6%): {self._fmt_usd(tp_usd)}\n"
+                f"  🛑 Stop-loss (-3%): {self._fmt_usd(sl_usd)}\n"
                 f"  📊 Ratio riesgo/beneficio: 1:2"
             )
 
@@ -206,7 +220,7 @@ class TelegramBot:
             pct = (t.change_24h_pct / prev * 100) if prev != 0 else 0
             emoji = "🟢" if pct > 0 else "🔴"
             name = t.symbol.split("/")[0]
-            lines.append(f"{emoji} <b>{name}</b>: {self._usd(t.last_price)} ({pct:+.2f}%)")
+            lines.append(f"{emoji} <b>{name}</b>: {self._usd(t.last_price, t.symbol)} ({pct:+.2f}%)")
 
         header = f"📊 <b>Precios — {datetime.now().strftime('%H:%M')}</b>\n"
         batch_size = 30

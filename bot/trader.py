@@ -147,6 +147,11 @@ class Trader:
             usdc = ticker_map.get("USDC/EUR")
             if usdc and usdc.last_price > 0:
                 self.telegram.eur_usd_rate = 1.0 / usdc.last_price
+            usd_map = {}
+            for t in all_tickers:
+                if t.symbol.endswith("/USD") and t.last_price > 0:
+                    usd_map[t.symbol] = t.last_price
+            self.telegram.usd_prices = usd_map
         except Exception as e:
             self.alerts.error_alert(f"Error obteniendo tickers: {e}")
             return
