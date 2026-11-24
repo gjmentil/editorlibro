@@ -27,8 +27,28 @@ class TelegramBot:
     def enabled(self) -> bool:
         return bool(self.token and self.chat_id)
 
+    def verify(self) -> bool:
+        if not self.enabled:
+            log.warning("Telegram desactivado: falta token o chat_id")
+            return False
+        try:
+            resp = self._http.get(f"{self.base_url}/getMe", timeout=10)
+            if resp.status_code == 200:
+                bot_info = resp.json().get("result", {})
+                log.info("Telegram OK: @%s", bot_info.get("username", "?"))
+                return True
+            else:
+                log.error("Telegram error: getMe devolvio %s - token invalido?", resp.status_code)
+                return False
+        except Exception as e:
+            log.error("Telegram no accesible: %s", e)
+            return False
+
     def start_polling(self):
         if not self.enabled:
+            return
+        if not self.verify():
+            log.error("Telegram: polling NO iniciado por error de verificacion")
             return
         self._running = True
         self._poll_thread = threading.Thread(target=self._poll_loop, daemon=True)
@@ -151,6 +171,7 @@ class TelegramBot:
                     cmd = text.split()[0].lower() if text else ""
                     if cmd.startswith("/"):
                         cmd = cmd.split("@")[0]
+                        log.info("Telegram comando recibido: %s de chat %s", cmd, chat_id)
                         handler = self._command_handlers.get(cmd)
                         if handler:
                             try:

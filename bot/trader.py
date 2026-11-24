@@ -82,8 +82,11 @@ class Trader:
 
     def _register_telegram_commands(self):
         self.telegram.register_command("/precios", self._cmd_prices)
+        self.telegram.register_command("/precio", self._cmd_prices)
         self.telegram.register_command("/estado", self._cmd_status)
+        self.telegram.register_command("/status", self._cmd_status)
         self.telegram.register_command("/portfolio", self._cmd_portfolio)
+        self.telegram.register_command("/cartera", self._cmd_portfolio)
 
     def _cmd_prices(self):
         try:
