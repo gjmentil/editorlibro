@@ -42,6 +42,8 @@ class TradingStrategy:
         current_price = prices[-1] if prices else 0
 
         if signal.signal in (Signal.BUY, Signal.STRONG_BUY):
+            if signal.confidence < 0.5:
+                return TradeDecision(signal=signal, action=None, reason="Confianza < 50%")
             return self._evaluate_buy(signal, balance_quote, current_price,
                                       current_position, total_portfolio_value)
 
