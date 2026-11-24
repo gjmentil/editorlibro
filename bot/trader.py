@@ -90,8 +90,10 @@ class Trader:
 
     def _cmd_prices(self):
         try:
-            tickers = self._last_tickers or self.client.get_tickers()
-            watched = [t for t in tickers if t.symbol in self.symbols]
+            if not self._last_tickers:
+                self.telegram.send("Esperando primer ciclo de datos... intenta en 1 minuto")
+                return
+            watched = [t for t in self._last_tickers if t.symbol in self.symbols]
             watched.sort(key=lambda t: abs(t.change_24h_pct), reverse=True)
             self.telegram.send_prices(watched[:20])
         except Exception as e:

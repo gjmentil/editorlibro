@@ -11,8 +11,9 @@ from pathlib import Path
 class Database:
     def __init__(self, path: str = "trading_bot.db"):
         self.path = path
-        self._conn = sqlite3.connect(path)
+        self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._lock = __import__("threading").Lock()
         self._init_tables()
 
     def close(self):
@@ -68,30 +69,33 @@ class Database:
     def record_trade(self, order_id: str, symbol: str, side: str, order_type: str,
                      quantity: float, price: float | None, status: str,
                      strategy: str | None = None, signal_data: dict | None = None):
-        self._conn.execute(
-            """INSERT OR REPLACE INTO trades
-               (order_id, symbol, side, order_type, quantity, price, status, strategy, signal_data, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
-            (order_id, symbol, side, order_type, quantity, price, status,
-             strategy, json.dumps(signal_data) if signal_data else None),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """INSERT OR REPLACE INTO trades
+                   (order_id, symbol, side, order_type, quantity, price, status, strategy, signal_data, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                (order_id, symbol, side, order_type, quantity, price, status,
+                 strategy, json.dumps(signal_data) if signal_data else None),
+            )
+            self._conn.commit()
 
     def update_trade(self, order_id: str, status: str, filled_price: float | None = None, fee: float = 0):
-        self._conn.execute(
-            """UPDATE trades SET status=?, filled_price=?, fee=?, updated_at=datetime('now')
-               WHERE order_id=?""",
-            (status, filled_price, fee, order_id),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """UPDATE trades SET status=?, filled_price=?, fee=?, updated_at=datetime('now')
+                   WHERE order_id=?""",
+                (status, filled_price, fee, order_id),
+            )
+            self._conn.commit()
 
     def record_price(self, symbol: str, price: float, bid: float | None = None,
                      ask: float | None = None, volume: float | None = None):
-        self._conn.execute(
-            "INSERT INTO prices (symbol, price, bid, ask, volume) VALUES (?, ?, ?, ?, ?)",
-            (symbol, price, bid, ask, volume),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO prices (symbol, price, bid, ask, volume) VALUES (?, ?, ?, ?, ?)",
+                (symbol, price, bid, ask, volume),
+            )
+            self._conn.commit()
 
     def get_price_history(self, symbol: str, limit: int = 200) -> list[float]:
         rows = self._conn.execute(
