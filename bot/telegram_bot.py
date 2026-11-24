@@ -96,28 +96,78 @@ class TelegramBot:
             return
         if signal == "HOLD":
             return
-        emoji = {"STRONG_BUY": "🟢🟢", "BUY": "🟢", "SELL": "🔴", "STRONG_SELL": "🔴🔴"}.get(signal, "⚪")
-        reason_text = "\n".join(f"  • {r}" for r in reasons)
-        ind_text = "\n".join(f"  <code>{k}: {v}</code>" for k, v in indicators.items())
 
+        name = symbol.split("/")[0]
+        rsi = indicators.get("rsi", 0)
+        macd = indicators.get("macd_hist", 0)
+
+        if signal == "STRONG_BUY":
+            header = f"🟢🟢 <b>COMPRAR {name}</b> — Oportunidad fuerte"
+            advice = (
+                f"Varios indicadores coinciden en que <b>{name}</b> esta en un buen punto de entrada.\n"
+                f"El precio esta bajo respecto a su rango reciente y muestra impulso alcista."
+            )
+        elif signal == "BUY":
+            header = f"🟢 <b>COMPRAR {name}</b> — Oportunidad moderada"
+            advice = (
+                f"Los indicadores sugieren que <b>{name}</b> podria subir.\n"
+                f"No es una senal tan fuerte, pero las condiciones son favorables."
+            )
+        elif signal == "SELL":
+            header = f"🔴 <b>VENDER {name}</b> — Momento de salir"
+            advice = (
+                f"Los indicadores sugieren que <b>{name}</b> podria bajar.\n"
+                f"Si tienes esta crypto, considera vender para proteger tus ganancias."
+            )
+        else:
+            header = f"🔴🔴 <b>VENDER {name}</b> — Salir ya"
+            advice = (
+                f"Multiples indicadores muestran que <b>{name}</b> esta sobrecomprada y podria caer.\n"
+                f"Es recomendable vender lo antes posible."
+            )
+
+        risk_note = ""
+        if signal in ("STRONG_BUY", "BUY"):
+            risk_note = "\n⚠️ Stop-loss automatico al -3%. Take-profit al +6%."
+
+        rsi_text = ""
+        if rsi:
+            if rsi < 30:
+                rsi_text = f"\n📉 RSI: {rsi:.0f} (sobreventa = oportunidad de compra)"
+            elif rsi > 70:
+                rsi_text = f"\n📈 RSI: {rsi:.0f} (sobrecompra = riesgo de caida)"
+            else:
+                rsi_text = f"\n📊 RSI: {rsi:.0f} (zona neutral)"
+
+        stars = "⭐" * max(1, min(5, int(confidence * 5)))
         text = (
-            f"{emoji} <b>{signal}</b> — {symbol}\n"
-            f"Confianza: {confidence:.0%}\n\n"
-            f"<b>Razones:</b>\n{reason_text}\n\n"
-            f"<b>Indicadores:</b>\n{ind_text}"
+            f"{header}\n"
+            f"Confianza: {stars} ({confidence:.0%})\n\n"
+            f"{advice}{rsi_text}{risk_note}"
         )
         self.send(text)
 
     def send_trade(self, symbol: str, side: str, quantity: float, price: float | None, dry_run: bool = False):
-        emoji = "🟢" if side == "BUY" else "🔴"
+        name = symbol.split("/")[0]
+        price_str = self._usd(price) if price else "precio de mercado"
         mode = " (simulacion)" if dry_run else ""
-        price_str = self._usd(price) if price else "mercado"
 
-        text = (
-            f"{emoji} <b>TRADE{mode}</b>\n"
-            f"{side} {quantity:.6f} {symbol}\n"
-            f"Precio: {price_str}"
-        )
+        if side == "BUY":
+            text = (
+                f"🛒 <b>COMPRA{mode}</b>\n\n"
+                f"He comprado <b>{quantity:.6f} {name}</b>\n"
+                f"Precio: {price_str}\n\n"
+                f"📌 Vigilare esta posicion:\n"
+                f"  • Si baja -3% → vendo automaticamente (stop-loss)\n"
+                f"  • Si sube +6% → vendo automaticamente (take-profit)"
+            )
+        else:
+            text = (
+                f"💰 <b>VENTA{mode}</b>\n\n"
+                f"He vendido <b>{quantity:.6f} {name}</b>\n"
+                f"Precio: {price_str}\n\n"
+                f"Posicion cerrada."
+            )
         self.send(text)
 
     def send_error(self, message: str):
@@ -163,14 +213,21 @@ class TelegramBot:
         self.send(text)
 
     def send_help(self):
-        alerts_state = "ON" if self.alerts_enabled else "OFF"
+        alerts_state = "activadas" if self.alerts_enabled else "desactivadas"
         self.send(
-            "🤖 <b>Comandos disponibles:</b>\n\n"
-            "/precios — Precios actuales (USD)\n"
-            "/estado — Estado del bot y P&L\n"
-            "/portfolio — Posiciones abiertas\n"
-            f"/alertas — Alertas de senales ({alerts_state})\n"
-            "/help — Este mensaje"
+            "🤖 <b>Tu asesor crypto</b>\n\n"
+            "Te aviso cuando detecto oportunidades de compra o venta.\n\n"
+            "<b>Comandos:</b>\n"
+            "/precios — Ver todas las cryptos y sus precios\n"
+            "/estado — Como va el bot hoy (ganancias/perdidas)\n"
+            "/portfolio — Que cryptos tienes ahora\n"
+            f"/alertas — Activar/desactivar avisos ({alerts_state})\n"
+            "/help — Ver estos comandos\n\n"
+            "<b>Como funciona:</b>\n"
+            "Analizo 61 cryptos cada minuto. Cuando detecto una buena "
+            "oportunidad de compra o venta, te aviso. El bot tiene "
+            "proteccion automatica: si una crypto baja -3% la vende "
+            "(stop-loss) y si sube +6% tambien (take-profit)."
         )
 
     def _poll_loop(self):
